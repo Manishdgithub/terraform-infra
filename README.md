@@ -30,7 +30,7 @@ The infrastructure provisions a redundant, secure, and self-healing environment:
 
 ## Repository Structure
 
-```text
+
 terraform-infra/
 ├── .gitignore
 ├── README.md
