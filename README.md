@@ -1,205 +1,171 @@
-<div align="center">
+# AWS Multi-AZ Modular Infrastructure with Terraform
 
-# ☁️ Enterprise AWS Multi-AZ Infrastructure with Terraform
-
-[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5.0-844FBA?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
-[![AWS Provider](https://img.shields.io/badge/AWS%20Provider-~%3E5.0-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://registry.terraform.io/providers/hashicorp/aws/latest)
-[![Architecture](https://img.shields.io/badge/Architecture-High%20Availability-success?style=for-the-badge&logo=awsorganizations&logoColor=white)](#architecture-overview)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
-
-*Production-ready, highly available, multi-tier AWS infrastructure orchestrated across multiple Availability Zones with reusable Terraform modules for **Dev**, **QC**, and **Production** environments.*
-
-[Architecture](#architecture-overview) • [Repository Structure](#repository-structure) • [Environment Comparison](#environment-comparison) • [Quick Start](#getting-started) • [Security](#security--key-management) • [Author](#author)
+An enterprise-grade, modular Infrastructure-as-Code (IaC) project built using **Terraform (HCL)** to deploy a highly available, multi-tier AWS architecture across multiple Availability Zones for **Development (`dev`)**, **Quality Control (`qc`)**, and **Production (`prod`)** environments.
 
 ---
 
-</div>
+## Architecture Overview
 
-## 📌 Architecture Overview
+The infrastructure provisions a redundant, secure, and self-healing environment:
 
-This project designs a secure, resilient, and auto-scaling cloud topology across **two Availability Zones (AZs)**, enforcing least-privilege traffic flow and automated key lifecycle management.
+- **Networking (VPC)**:
+  - Custom VPC spanned across **2 Availability Zones**.
+  - **2 Public Subnets** hosting Internet Gateways and Dual NAT Gateways for outbound internet connectivity.
+  - **2 Private Subnets** hosting application instances with no direct public route.
+  - **S3 Gateway Endpoint** for direct, cost-free, high-performance internal access to S3.
+- **Security & Traffic Management**:
+  - Independent Security Groups enforcing least privilege.
+  - Public **Application Load Balancer (ALB)** accepting HTTP/HTTPS traffic.
+  - Backend instances only accept HTTP traffic routed directly through the ALB Security Group.
+  - Automated **`aws_login` Key Pair** generated at deploy time with local `.pem` export.
+- **Compute & Auto Scaling**:
+  - **Auto Scaling Group (ASG)** spanning across private subnets.
+  - Amazon Linux 2023 launch templates configured with rolling updates and health checks.
+- **Regional Services**:
+  - S3 bucket with default server-side encryption (AES256) and versioning.
+  - DynamoDB state/lock table with point-in-time recovery.
+  - Amazon CloudWatch metric alarms monitoring ASG CPU utilization.
+
+---
+
+## Repository Structure
 
 ```text
-                    ┌──────────────────────────────────────────────────────── ┐
-                    │               AWS Region (Multi-AZ VPC)                 │
-                    │                                                         │
-                    │   ┌────────────────────────────────────────────────┐    │
-                    │   │       Internet Gateway & S3 Gateway VPC EP     │    │
-                    │   └───────────────────────┬────────────────────────┘    │
-                    │                           │                             │
-                    │        ┌──────────────────┴──────────────────┐          │
-                    │        ▼                                     ▼          │
-                    │  [Public Subnet 1]                     [Public Subnet 2]│
-                    │  ├── NAT Gateway 1                     ├── NAT Gateway 2│
-                    │  └── Public Application Load Balancer (ALB) ────────┐   │
-                    │                                                     │   │
-                    │        ┌────────────────────────────────────────────┘   │
-                    │        ▼                                                │
-                    │  [Private Subnet 1]                   [Private Subnet 2]│
-                    │  ├── EC2 (App Instance 1)             ├── EC2 (App 2)   │
-                    │  └─────────── Auto Scaling Group (ASG) ─────────────┘   │
-                    │                                                         │
-                    │  Regional Services: S3 Bucket • DynamoDB • CloudWatch   │
-                    └──────────────────────────────────────────────────────── ┘
-
-Key Pillars
-🌐 Resilient Networking (VPC)
-
-Dual Availability Zone coverage (ap-south-1a, ap-south-1b).
-
-2 Public Subnets with Internet Gateway (IGW) and dedicated NAT Gateways per AZ.
-
-2 Isolated Private Subnets housing backend EC2 instances without direct public routing.
-
-S3 Gateway Endpoint to route object storage traffic internally without NAT egress costs.
-
-🛡️ Zero-Trust Security & Traffic Routing
-
-Public-facing Application Load Balancer (ALB) accepting only HTTP/HTTPS (80/443).
-
-Tiered Security Groups: Private EC2 workloads only accept inbound HTTP from the ALB security group.
-
-Automatic cryptographic key generation: aws_login Key Pair provisioned on the fly via tls_private_key, outputting an access-controlled .pem (chmod 0400).
-
-📈 Elastic Compute & Observability
-
-Auto Scaling Group (ASG) dynamically matching demand using Amazon Linux 2023 launch templates.
-
-Rolling deployments configured with zero-downtime instance refresh strategies.
-
-CloudWatch alarms continuously tracking ASG CPU metrics with linked log retention rules.
-
-🗂️ Repository Structure
-
 terraform-infra/
-├── .gitignore                      # Excludes .pem keys, state files, and cache
-├── README.md                       # Repository documentation
+├── .gitignore
+├── README.md
 ├── modules/
-│   ├── vpc/                        # Multi-AZ subnets, IGW, Dual NATs, S3 Gateway EP
+│   ├── vpc/                  # Multi-AZ subnets, IGW, dual NAT GWs, S3 Gateway endpoint
+│   │   ├── main.tf
+│   │   ├── variables.tf      # Fully documented inputs
+│   │   └── outputs.tf
+│   ├── security/             # Ingress/Egress rules for ALB and EC2
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
-│   ├── security/                   # Least-privilege Ingress/Egress Security Groups
+│   ├── alb/                  # Internet-facing ALB, listeners, and target groups
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
-│   ├── alb/                        # Public Application Load Balancer & Target Groups
+│   ├── asg/                  # Launch template, Auto Scaling Group, health checks
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
-│   ├── asg/                        # Launch Template, Auto Scaling Group & Health Checks
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── regional_services/          # Encrypted S3, DynamoDB state table, CloudWatch alarms
+│   └── regional_services/    # S3 bucket, DynamoDB table, CloudWatch alarms
 │       ├── main.tf
 │       ├── variables.tf
 │       └── outputs.tf
 └── environments/
-    ├── dev/                        # Development sandbox (t3.micro, min=1, max=2)
+    ├── dev/                  # Development environment (t3.micro, min=1, max=2)
     │   ├── main.tf
     │   ├── variables.tf
     │   ├── terraform.tfvars
     │   └── outputs.tf
-    ├── qc/                         # Staging / Quality Control (t3.small, min=2, max=4)
+    ├── qc/                   # Staging / QC environment (t3.small, min=2, max=4)
     │   ├── main.tf
     │   ├── variables.tf
     │   ├── terraform.tfvars
     │   └── outputs.tf
-    └── prod/                       # Production setup (t3.medium, min=2, max=8)
+    └── prod/                 # Production environment (t3.medium, min=2, max=8)
         ├── main.tf
         ├── variables.tf
         ├── terraform.tfvars
         └── outputs.tf
-		
-⚖️ Environment Comparison
-🚀 Getting Started
-Prerequisites
-Terraform CLI >= 1.5.0
+```
 
-AWS CLI v2 installed and configured:
+--- 
 
-Bash
+## Environment Comparison
+
+| Attribute                     | Dev (`environments/dev`) | QC (`environments/qc`) | Prod (`environments/prod`) |
+|-------------------------------|--------------------------|------------------------|----------------------------|
+| **CIDR Block**                | 10.10.0.0/16             | 10.20.0.0/16           | 10.0.0.0/16                |
+| **Instance Type**             | t3.micro                 | t3.small               | t3.medium                  |
+| **ASG Scaling (Min/Max/Desired)** | 1 / 2 / 1             | 2 / 4 / 2              | 2 / 8 / 4                  |
+| **ALB Deletion Protection**   | Disabled                 | Disabled               | Enabled                    |
+| **CloudWatch Log Retention**  | 14 Days                  | 14 Days                | 90 Days                    |
+| **S3 Bucket Force Destroy**   | Enabled                  | Enabled                | Disabled                   |
+
+---
+
+## Prerequisites
+
+- **Terraform**: CLI >= 1.5.0 installed  
+- **AWS CLI**: Configured with credentials that have administrative permissions  
+
+```bash
 aws configure
-Step-by-Step Deployment
-1. Navigate to your target environment
-Bash
-cd environments/dev
-# Alternately: cd environments/qc or cd environments/prod
-2. Initialize provider plugins and modules
-Bash
+
+Deployment Instructions
+Select and Navigate to Environment
+
+bash
+cd environments/dev    # or environments/qc, environments/prod
+Initialize Providers & Modules
+
+bash
 terraform init
-3. Validate & preview changes
-Bash
-terraform validate
+Review the Plan
+
+bash
 terraform plan
-4. Provision infrastructure
-Bash
+Deploy Infrastructure
+
+bash
 terraform apply
+Accessing the Infrastructure
+Web Access
+Once provisioning completes, copy the ALB DNS name from the Terraform outputs:
 
+bash
+terraform output alb_dns_name
+Open the returned DNS URL in your web browser to confirm instance responses.
 
-🔒 Security & Key Management
-Dynamic Key Generation (aws_login)
-Terraform handles the SSH key pair creation using the tls and local providers so that no secrets need to be checked into version control.
+EC2 Access via aws_login Key
+During terraform apply, Terraform uses tls_private_key to build an RSA key pair, creates the key in AWS, and saves the .pem file directly into your environment directory:
 
-Automatic Generation: Creates an unencrypted 4096-bit RSA key pair during execution.
-
-Local Key Export: Saves aws_login_<env>.pem directly into the targeted environment folder with restrictive permissions (0400).
-
-Connecting via SSH:
-
-Bash
-# Verify local key permissions
+bash
+# Confirm permissions (automatically set to 0400 by Terraform)
 ls -l aws_login_*.pem
 
-# Connect through your private subnet route or EC2 Instance Connect / SSM
+# Connect to your backend instance via internal routing or EC2 Instance Connect / SSM
 ssh -i aws_login_dev.pem ec2-user@<PRIVATE_INSTANCE_IP>
-Accessing the Web Application
-Retrieve the DNS name of the newly created Application Load Balancer directly from Terraform outputs:
+Teardown / Destroy
+To remove all provisioned cloud resources and stop recurring billing:
 
-Bash
-terraform output alb_dns_name
-Paste this endpoint into your browser to verify routing and instance health.
-
-🧹 Environment Teardown
-To avoid unnecessary AWS charges, destroy resources when they are no longer required:
-
-Bash
+bash
 cd environments/dev
 terraform destroy
-Note: For prod, disable deletion_protection on the ALB and clear S3 objects before running destroy.
+Author
+Manish D — DevOps & Platform Engineer  
+LinkedIn: linkedin.com/in/manish-d-0779b01aa (linkedin.com in Bing)
 
-📦 Step-by-Step Commands to Push to GitHub
-From the root of your project directory (terraform-infra/):
+Step-by-Step Commands to Push to GitHub
+Run these commands from the root directory of your project:
 
-Bash
+bash
 # 1. Initialize git
 git init
 
-# 2. Stage files
+# 2. Add files (ensure .gitignore is in place before this step)
 git add .
 
-# 3. Check status to confirm .pem and .tfstate files are ignored
+# 3. Check status to confirm .pem and .tfstate files are NOT staged
 git status
 
-# 4. Commit files
+# 4. Commit your files
 git commit -m "feat: complete multi-az modular terraform architecture for dev, qc, and prod"
 
 # 5. Set branch name to main
 git branch -M main
 
-# 6. Add your GitHub remote repository
-git remote add origin [https://github.com/](https://github.com/)<YOUR_GITHUB_USERNAME>/<YOUR_REPOSITORY_NAME>.git
+# 6. Add your GitHub remote repository URL
+git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPOSITORY_NAME>.git
 
-# 7. Push to GitHub
+# 7. Push code to GitHub
 git push -u origin main
+Code
 
+---
 
-👤 Author
-Manish D
-
-DevOps & Platform Engineer
-
-LinkedIn: linkedin.com/in/manish-d-0779b01aa[cite: 1]
-
-Location: Bangalore, India[cite: 1]
+This version is clean, structured, and GitHub‑ready. Do you want me to also add a **`.gitig
