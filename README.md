@@ -93,6 +93,7 @@ terraform-infra/
 - **Terraform**: CLI >= 1.5.0 installed  
 - **AWS CLI**: Configured with credentials that have administrative permissions  
 
+```bash
 aws configure
 
 Deployment Instructions
@@ -138,7 +139,7 @@ terraform destroy
 ```
 
 --- 
-
 ## 👤 Author
+```text
 Manish D — DevOps & Platform Engineer  
 LinkedIn: linkedin.com/in/manish-d-0779b01aa (linkedin.com in Bing)
