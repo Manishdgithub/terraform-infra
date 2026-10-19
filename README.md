@@ -139,33 +139,3 @@ terraform destroy
 Author
 Manish D — DevOps & Platform Engineer  
 LinkedIn: linkedin.com/in/manish-d-0779b01aa (linkedin.com in Bing)
-
-Step-by-Step Commands to Push to GitHub
-Run these commands from the root directory of your project:
-
-bash
-# 1. Initialize git
-git init
-
-# 2. Add files (ensure .gitignore is in place before this step)
-git add .
-
-# 3. Check status to confirm .pem and .tfstate files are NOT staged
-git status
-
-# 4. Commit your files
-git commit -m "feat: complete multi-az modular terraform architecture for dev, qc, and prod"
-
-# 5. Set branch name to main
-git branch -M main
-
-# 6. Add your GitHub remote repository URL
-git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPOSITORY_NAME>.git
-
-# 7. Push code to GitHub
-git push -u origin main
-Code
-
----
-
-This version is clean, structured, and GitHub‑ready. Do you want me to also add a **`.gitig
