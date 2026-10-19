@@ -71,3 +71,99 @@ terraform-infra/
         ├── variables.tf
         ├── terraform.tfvars
         └── outputs.tf
+
+
+## Environment Comparison
+
+| Attribute                     | Dev (`environments/dev`) | QC (`environments/qc`) | Prod (`environments/prod`) |
+|-------------------------------|--------------------------|------------------------|----------------------------|
+| **CIDR Block**                | 10.10.0.0/16             | 10.20.0.0/16           | 10.0.0.0/16                |
+| **Instance Type**             | t3.micro                 | t3.small               | t3.medium                  |
+| **ASG Scaling (Min/Max/Desired)** | 1 / 2 / 1             | 2 / 4 / 2              | 2 / 8 / 4                  |
+| **ALB Deletion Protection**   | Disabled                 | Disabled               | Enabled                    |
+| **CloudWatch Log Retention**  | 14 Days                  | 14 Days                | 90 Days                    |
+| **S3 Bucket Force Destroy**   | Enabled                  | Enabled                | Disabled                   |
+
+---
+
+## Prerequisites
+
+- **Terraform**: CLI >= 1.5.0 installed  
+- **AWS CLI**: Configured with credentials that have administrative permissions  
+
+```bash
+aws configure
+
+Deployment Instructions
+Select and Navigate to Environment
+
+bash
+cd environments/dev    # or environments/qc, environments/prod
+Initialize Providers & Modules
+
+bash
+terraform init
+Review the Plan
+
+bash
+terraform plan
+Deploy Infrastructure
+
+bash
+terraform apply
+Accessing the Infrastructure
+Web Access
+Once provisioning completes, copy the ALB DNS name from the Terraform outputs:
+
+bash
+terraform output alb_dns_name
+Open the returned DNS URL in your web browser to confirm instance responses.
+
+EC2 Access via aws_login Key
+During terraform apply, Terraform uses tls_private_key to build an RSA key pair, creates the key in AWS, and saves the .pem file directly into your environment directory:
+
+bash
+# Confirm permissions (automatically set to 0400 by Terraform)
+ls -l aws_login_*.pem
+
+# Connect to your backend instance via internal routing or EC2 Instance Connect / SSM
+ssh -i aws_login_dev.pem ec2-user@<PRIVATE_INSTANCE_IP>
+Teardown / Destroy
+To remove all provisioned cloud resources and stop recurring billing:
+
+bash
+cd environments/dev
+terraform destroy
+Author
+Manish D — DevOps & Platform Engineer  
+LinkedIn: linkedin.com/in/manish-d-0779b01aa (linkedin.com in Bing)
+
+Step-by-Step Commands to Push to GitHub
+Run these commands from the root directory of your project:
+
+bash
+# 1. Initialize git
+git init
+
+# 2. Add files (ensure .gitignore is in place before this step)
+git add .
+
+# 3. Check status to confirm .pem and .tfstate files are NOT staged
+git status
+
+# 4. Commit your files
+git commit -m "feat: complete multi-az modular terraform architecture for dev, qc, and prod"
+
+# 5. Set branch name to main
+git branch -M main
+
+# 6. Add your GitHub remote repository URL
+git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPOSITORY_NAME>.git
+
+# 7. Push code to GitHub
+git push -u origin main
+Code
+
+---
+
+This version is clean, structured, and GitHub‑ready. Do you want me to also add a **`.gitig
