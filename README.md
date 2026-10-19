@@ -142,4 +142,4 @@ terraform destroy
 ## 👤 Author
 ```text
 Manish D — DevOps & Platform Engineer  
-LinkedIn: linkedin.com/in/manish-d-0779b01aa (linkedin.com in Bing)
+LinkedIn: linkedin.com/in/manish-d-0779b01aa
