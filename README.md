@@ -86,6 +86,16 @@ terraform-infra/
 | **CloudWatch Log Retention**  | 14 Days                  | 14 Days                | 90 Days                    |
 | **S3 Bucket Force Destroy**   | Enabled                  | Enabled                | Disabled                   |
 
+
+---
+
+## 🔒 Security & Key Management
+
+- **Dynamic Key Generation (aws_login)**:
+  - Terraform handles the SSH key pair creation using the tls and local providers so that no secrets need to be checked into version control.
+  - Automatic Generation: Creates an unencrypted 4096-bit RSA key pair during execution.
+  - Local Key Export: Saves aws_login_<env>.pem directly into the targeted environment folder with restrictive permissions (0400).
+
 ---
 
 ## Prerequisites
